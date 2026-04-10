@@ -229,16 +229,27 @@ export function CreativeStudio({ profileId, startupText, startupUrl }) {
                 checked={storyMode === "images"}
                 onChange={() => setStoryMode("images")}
               />
-              Story as image panels (comic-style)
+              Visual workflow (10–15 panels; story on the images + short captions below)
             </label>
           </div>
+          {storyMode === "images" && (
+            <p className="hint tiny-disclaimer">
+              No long text above the panels: each image carries the narrative (UI copy,
+              labels, bubbles). Captions under each panel are brief. Generating many
+              images can take several minutes.
+            </p>
+          )}
           <button
             type="button"
             className="btn"
             disabled={!!busy || !canRun}
             onClick={runStory}
           >
-            {busy === "story" ? "Generating…" : "Generate story"}
+            {busy === "story"
+              ? storyMode === "images"
+                ? "Generating panels (slow)…"
+                : "Generating…"
+              : "Generate story"}
           </button>
 
           {story?._parse_error && (
@@ -276,19 +287,30 @@ export function CreativeStudio({ profileId, startupText, startupUrl }) {
               )}
               {story.mode === "images" && (story.panels || []).length > 0 && (
                 <>
-                  <div className="story-panels-grid">
+                  <div className="story-panels-grid story-panels-grid--workflow">
                     {(story.panels || []).map((p, i) => (
                       <figure key={i} className="story-panel-fig">
                         {p.imageUrl && (
                           <img
                             className="gen-image"
                             src={p.imageUrl}
-                            alt={p.title || `Panel ${i + 1}`}
+                            alt={
+                              [p.title, p.paragraph].filter(Boolean).join(". ") ||
+                              `Workflow step ${i + 1}`
+                            }
                           />
                         )}
-                        <figcaption>
-                          <strong>{p.title || `Panel ${i + 1}`}</strong>
-                          <p>{p.paragraph}</p>
+                        <figcaption className="story-panel-caption">
+                          {p.workflow_step != null &&
+                            !Number.isNaN(Number(p.workflow_step)) && (
+                              <span className="muted-label story-step-pill">
+                                Step {p.workflow_step}
+                              </span>
+                            )}
+                          <strong>{p.title || `Step ${i + 1}`}</strong>
+                          {p.paragraph && (
+                            <p className="idea-card-p tight">{p.paragraph}</p>
+                          )}
                         </figcaption>
                       </figure>
                     ))}

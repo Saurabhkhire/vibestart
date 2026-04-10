@@ -235,6 +235,8 @@ export default function App() {
         competitors,
         panels,
         vcSimulator: vcSimResult,
+        vcPersona: vcPersona.trim() || undefined,
+        vcPitchNotes: pitchNotes.trim() || undefined,
         founderPreferences,
         runAllAnalyses: true,
       });
@@ -537,11 +539,11 @@ export default function App() {
             </button>
           </div>
           <p className="hint pdf-hint">
-            Export <strong>automatically runs every intelligence panel</strong>{" "}
-            (comparison, VCs, roast, hiring, gaps, ideas, collabs, extras,
-            uniqueness) using your current profile, then builds one PDF with the
-            full JSON for each. VC preferences from section 3 apply to the VCs
-            section. This can take several minutes.
+            Export <strong>runs every intelligence panel</strong> in order (same
+            as section 4), then writes readable text for each, plus the{" "}
+            <strong>VC pitch simulator</strong> if you have run it (results are
+            saved on your profile). VC preferences from section 3 apply to the
+            VCs panel. This can take several minutes.
           </p>
         </section>
 

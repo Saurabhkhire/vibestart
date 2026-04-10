@@ -5,13 +5,16 @@ import {
   renderVcSimulator,
 } from "./pdfPanelText.js";
 
+const VC_SNAPSHOT_KEY = "vc_simulator";
+
+/** Same order as section 4 (Intelligence runs) buttons in frontend/src/App.jsx */
 const PANEL_ORDER = [
   ["comparison", "Deep competitor comparison"],
   ["vcs", "VCs you may have missed"],
-  ["roast", "Roast"],
   ["jobs", "Hiring & job opportunities"],
   ["gaps", "Strategic gaps"],
   ["ideas", "Startup ideas for you"],
+  ["roast", "Roast"],
   ["collaborations", "Collaborations"],
   ["extras", "Moats, pivots & extras"],
   ["uniqueness", "Unique edge blueprint"],
@@ -65,6 +68,7 @@ function section(doc, title) {
  *   competitors?: { url?: string; summary?: string }[],
  *   panels?: Record<string, unknown>,
  *   vcSimulator?: unknown,
+ *   vcSimulatorMeta?: { vcPersona?: string, pitchNotes?: string },
  *   mergeSnapshots?: boolean,
  * }} input
  */
@@ -74,6 +78,11 @@ export async function buildReportPdf(input) {
     const snaps = getLatestSnapshotMap(input.profileId);
     panels = mergePanels(panels, snaps);
   }
+
+  const vcFromPanels = panels[VC_SNAPSHOT_KEY];
+  delete panels[VC_SNAPSHOT_KEY];
+  const vcPayload =
+    input.vcSimulator != null ? input.vcSimulator : vcFromPanels ?? null;
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 48, size: "LETTER" });
@@ -125,16 +134,12 @@ export async function buildReportPdf(input) {
     }
 
     for (const [key, label] of PANEL_ORDER) {
-      const data = panels[key];
-      if (data == null) continue;
       section(doc, label);
-      renderIntelligencePanelText(doc, key, data);
+      renderIntelligencePanelText(doc, key, panels[key] ?? null);
     }
 
-    if (input.vcSimulator != null) {
-      section(doc, "VC pitch simulator (role-play response)");
-      renderVcSimulator(doc, input.vcSimulator);
-    }
+    section(doc, "VC pitch simulator (role-play response)");
+    renderVcSimulator(doc, vcPayload, input.vcSimulatorMeta);
 
     doc.end();
   });

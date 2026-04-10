@@ -258,6 +258,7 @@ api.post("/simulate/vc", asyncRoute(async (req, res) => {
       vcPersona,
       pitchNotes,
     });
+    saveSnapshot(profileId, "vc_simulator", result);
     return res.json({ profileId, result });
   } catch (e) {
     console.error(e);
@@ -272,26 +273,36 @@ api.post("/export/pdf", asyncRoute(async (req, res) => {
   try {
     const b = req.body || {};
     let mergedPanels = { ...(b.panels || {}) };
+    let snapMap = {};
 
-    if (b.runAllAnalyses !== false && b.profileId) {
-      const bundle = await loadContextBundle(b.profileId);
-      if (!bundle) {
-        return res.status(404).json({ error: "Profile not found." });
+    if (b.profileId) {
+      if (b.runAllAnalyses !== false) {
+        const bundle = await loadContextBundle(b.profileId);
+        if (!bundle) {
+          return res.status(404).json({ error: "Profile not found." });
+        }
+        if (!bundle.combinedSummary.trim()) {
+          return res
+            .status(400)
+            .json({ error: "Profile has no combined summary." });
+        }
+        await runAllIntelligenceAnalyses(
+          b.profileId,
+          bundle,
+          b.founderPreferences,
+          saveSnapshot
+        );
+        snapMap = getLatestSnapshotMap(b.profileId);
+        mergedPanels = { ...mergedPanels, ...snapMap };
+      } else {
+        snapMap = getLatestSnapshotMap(b.profileId);
       }
-      if (!bundle.combinedSummary.trim()) {
-        return res
-          .status(400)
-          .json({ error: "Profile has no combined summary." });
-      }
-      await runAllIntelligenceAnalyses(
-        b.profileId,
-        bundle,
-        b.founderPreferences,
-        saveSnapshot
-      );
-      const snaps = getLatestSnapshotMap(b.profileId);
-      mergedPanels = { ...mergedPanels, ...snaps };
     }
+
+    const vcFromPanels = mergedPanels.vc_simulator;
+    delete mergedPanels.vc_simulator;
+    const vcResolved =
+      b.vcSimulator ?? vcFromPanels ?? snapMap.vc_simulator ?? null;
 
     const buf = await buildReportPdf({
       profileId: b.profileId,
@@ -301,7 +312,11 @@ api.post("/export/pdf", asyncRoute(async (req, res) => {
       startupUrl: b.startupUrl,
       competitors: b.competitors,
       panels: mergedPanels,
-      vcSimulator: b.vcSimulator,
+      vcSimulator: vcResolved,
+      vcSimulatorMeta: {
+        vcPersona: (b.vcPersona || "").trim() || undefined,
+        pitchNotes: (b.vcPitchNotes || "").trim() || undefined,
+      },
       mergeSnapshots:
         b.runAllAnalyses !== false && b.profileId ? false : b.mergeSnapshots !== false,
     });

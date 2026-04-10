@@ -153,6 +153,15 @@ function ComparisonView({ data }) {
           <ProseMarkdown>{data.common_ground_md}</ProseMarkdown>
         </Section>
       )}
+      {(data.branch_comparison_md || "").trim() && (
+        <Section title="Strategic branch comparison">
+          <p className="hint tight-hint">
+            Alternative GTM / ICP / pricing / deployment &ldquo;branches&rdquo;:
+            where we sit vs each competitor, and tradeoffs.
+          </p>
+          <ProseMarkdown>{data.branch_comparison_md}</ProseMarkdown>
+        </Section>
+      )}
       {(data.unique_differentiation_ideas || []).length > 0 && (
         <Section title="How to be more unique">
           <ul className="card-list">
@@ -297,6 +306,12 @@ function ComparisonView({ data }) {
                 <p className="idea-card-p">
                   <span className="muted-label">Common with us</span>{" "}
                   {c.common_with_us}
+                </p>
+              )}
+              {(c.strategic_branch_vs_us || "").trim() && (
+                <p className="idea-card-p">
+                  <span className="muted-label">Strategic branch vs us</span>{" "}
+                  {c.strategic_branch_vs_us}
                 </p>
               )}
               <p className="idea-card-p">

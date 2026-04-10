@@ -752,6 +752,17 @@ body {
   margin-top: 1rem;
 }
 
+.story-panels-grid--workflow {
+  margin-top: 0;
+}
+
+.story-panel-caption .story-step-pill {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
 @media (min-width: 640px) {
   .story-panels-grid {
     grid-template-columns: 1fr 1fr;

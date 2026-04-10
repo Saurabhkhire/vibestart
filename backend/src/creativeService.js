@@ -291,12 +291,51 @@ export async function generateAdFromProduct(ctx, output) {
 
 export async function generateStoryFromProduct(ctx, output) {
   const brandName = inferBrandName(ctx);
-  const system =
-    "You are a brand storyteller. Turn product evidence into a compelling narrative arc (problem → insight → product → outcome). " +
-    "For image mode, produce a clear comic-like story with 3-4 panels that make sense in order. " +
-    "Each panel must advance the plot, keep character/context continuity, and be understandable on its own. " +
-    "Explain what the app does, why it matters, and how to use it in child-friendly language (simple words, concrete examples). " +
-    "Include readable in-image text (captions/speech bubbles/sfx) and visible brand mention where natural.";
+  const isImages = output === "images";
+
+  const system = isImages
+    ? "You are a product designer and storyboard artist. Build a VISUAL WORKFLOW ONLY: the user must understand what the product does from a sequence of images. " +
+      "Ground every step in product_page (real UI patterns, roles, data flow, integrations). No generic cartoons—show plausible app screens, dashboards, notifications, or simplified product UI. " +
+      "ALL explanation that a reader needs MUST appear as legible text INSIDE each image (labels, speech bubbles, callouts, fake UI copy, step numbers). " +
+      "Do NOT rely on prose outside the panels—there will be no story block above the images. " +
+      "Keep one consistent visual style, palette, and character/device across the whole sequence. " +
+      "Panels must read as a tutorial: discovery → setup → core loop → collaboration/automation if relevant → outcome."
+    : "You are a brand storyteller and product educator. Turn product evidence into a rich narrative arc: world → pain → insight → product in action → proof/outcome → next step. " +
+      "Ground every beat in product_page (features, audience, workflow). Do NOT write a generic startup fairy tale—use concrete nouns from the page or founder context. " +
+      "story_markdown must be long enough to stand alone: multiple sections with headings, bullets for key features, and a short FAQ-style 'How it works' if relevant.";
+
+  const schemaHint = isImages
+    ? `Schema (IMAGES / workflow mode — read carefully):
+    {
+      "title": "",
+      "story_markdown": "",
+      "one_line_hook": "",
+      "panels": [{
+        "workflow_step": number (1-based order),
+        "title": string (very short label for caption UNDER the image only, e.g. "Import your data"),
+        "paragraph": string (max 2 short sentences for caption UNDER the image—do not put the full story here; main story is ON the image),
+        "image_prompt": string (detailed: show specific UI/workflow moment, device, layout, emotion; same art direction as other panels),
+        "overlay_text_lines": string[] (REQUIRED: 3-7 short lines that MUST be rendered as readable text ON the image—UI labels, bubbles, arrows, step titles)
+      }]
+    }
+    HARD RULES for IMAGES mode:
+    - title, story_markdown, and one_line_hook MUST be empty strings "" (no title, no markdown story, no hook).
+    - panels: between 10 and 15 inclusive. Use 12-15 when product_page is detailed; minimum 10.
+    - Sequence must teach the product: early panels = problem/context; middle = step-by-step product workflow; late = result/value/CTA.
+    - Each image_prompt must demand legible typography and clear focal hierarchy so overlay lines are visible.
+    - overlay_text_lines must be concrete product language from the context, not lorem ipsum.`
+    : `Schema (TEXT mode):
+    {
+      "title": string,
+      "story_markdown": string (long markdown: sections ## Act / ## The product / ## Why it matters; avoid fluff),
+      "one_line_hook": string,
+      "panels": [{"title": string, "paragraph": string, "image_prompt": string, "overlay_text_lines": string[]}]
+    }
+    Constraints for TEXT mode:
+    - panels length: 6-8
+    - paragraph: 2-4 sentences each, plain language, product-specific
+    - overlay_text_lines optional (for future use)`;
+
   const user = JSON.stringify({
     product_page: ctx,
     inferred_brand_name: brandName,
@@ -305,53 +344,52 @@ export async function generateStoryFromProduct(ctx, output) {
       ctx.scrapeNote ||
       "Context is from the founder's saved profile (URL scrape and/or stored pitch).",
   });
+
   const parsed = await chatJson(
     system,
     user,
-    `Schema: {
-      "title": string,
-      "story_markdown": string,
-      "one_line_hook": string,
-      "panels": [{"title": string, "paragraph": string, "image_prompt": string, "overlay_text_lines": string[]}]
-    }. Constraints:
-    - panels length: 4-6
-    - panel 1 = problem/setup, panel 2 = tension/insight, panel 3 = product moment, panel 4 (optional) = outcome/CTA
-    - paragraph: 1-2 short sentences, plain language
-    - overlay_text_lines: 2-4 short lines for each panel, readable in comic bubbles/captions
-    `,
-    4500
+    schemaHint,
+    isImages ? 14_000 : 9000
   );
 
   if (parsed._parse_error) return parsed;
 
   const out = {
     mode: output,
-    title: parsed.title,
-    hook: parsed.one_line_hook,
-    story_markdown: parsed.story_markdown,
+    title: isImages ? "" : parsed.title,
+    hook: isImages ? "" : parsed.one_line_hook,
+    story_markdown: isImages ? "" : parsed.story_markdown,
     panels: [],
   };
 
   if (output === "images") {
     const panels = Array.isArray(parsed.panels) ? parsed.panels : [];
-    const take = panels.slice(0, 6);
-    for (const p of take) {
+    const sorted = [...panels].sort(
+      (a, b) => (Number(a.workflow_step) || 0) - (Number(b.workflow_step) || 0)
+    );
+    const toRender = sorted.slice(0, 15);
+
+    for (const p of toRender) {
       const panelOverlay = Array.isArray(p.overlay_text_lines)
-        ? p.overlay_text_lines.filter(Boolean).slice(0, 5)
+        ? p.overlay_text_lines.filter(Boolean).slice(0, 8)
         : [];
       const promptBase =
-        p.image_prompt ||
-        `Create one comic-style story panel for "${brandName}". Scene: ${p.title}. Narrative: ${p.paragraph}. Include readable caption/speech-bubble text and consistent character style.`.slice(
+        (p.image_prompt &&
+          String(p.image_prompt).slice(0, 3800)) ||
+        `Workflow panel for "${brandName}". Step: ${p.title}. ${p.paragraph}. Clean product illustration or app-style frame with readable typography.`.slice(
           0,
           3800
         );
-      const prompt = `${promptBase} ${
-        panelOverlay.length
-          ? `Use these exact in-image text lines: ${panelOverlay.join(" | ")}.`
-          : "Include short in-image narrative text and a subtle brand mention."
-      }`;
+      const prompt =
+        `${promptBase} ` +
+        `Brand/product context: ${brandName}. ` +
+        (panelOverlay.length
+          ? `Render these exact on-image text strings clearly (labels, bubbles, or UI copy): ${panelOverlay.join(" | ")}. `
+          : "Include clear on-image labels and a short step title. ") +
+        "Square composition, high contrast text, professional product-storyboard look, no watermark.";
       const img = await generateImagePng(prompt);
       out.panels.push({
+        workflow_step: p.workflow_step ?? null,
         title: p.title,
         paragraph: p.paragraph,
         imageUrl: img.url,
@@ -359,6 +397,7 @@ export async function generateStoryFromProduct(ctx, output) {
     }
   } else {
     out.panels = (parsed.panels || []).map((p) => ({
+      workflow_step: p.workflow_step ?? null,
       title: p.title,
       paragraph: p.paragraph,
     }));
@@ -384,38 +423,51 @@ export async function buildStoryPdf(story) {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    doc.fontSize(18).text(story?.title || "Storyboard", { underline: true });
-    if (story?.hook) {
-      doc.moveDown(0.4);
-      doc.fontSize(10).fillColor("#444").text(story.hook);
-      doc.fillColor("#000");
+    const imageWorkflow = story?.mode === "images";
+
+    if (!imageWorkflow) {
+      doc.fontSize(18).text(story?.title || "Storyboard", { underline: true });
+      if (story?.hook) {
+        doc.moveDown(0.4);
+        doc.fontSize(10).fillColor("#444").text(story.hook);
+        doc.fillColor("#000");
+      }
+      if (story?.story_markdown) {
+        doc.moveDown(0.4);
+        doc.fontSize(10).text(String(story.story_markdown), { width: 500 });
+      }
+      doc.moveDown(0.6);
     }
-    if (story?.story_markdown) {
-      doc.moveDown(0.4);
-      doc.fontSize(10).text(String(story.story_markdown), { width: 500 });
-    }
-    doc.moveDown(0.6);
+    // imageWorkflow: no title or prose above panels—start with first image
 
     const panels = Array.isArray(story?.panels) ? story.panels : [];
     panels.forEach((p, i) => {
-      doc.fontSize(12).text(`${i + 1}. ${p?.title || `Panel ${i + 1}`}`);
-      if (p?.paragraph) {
-        doc.moveDown(0.2);
-        doc.fontSize(10).text(String(p.paragraph), { width: 500 });
-      }
       const fp = tryResolveGeneratedImageFsPath(p?.imageUrl);
       if (fp) {
-        doc.moveDown(0.3);
         try {
-          doc.image(fp, { fit: [500, 280], align: "left" });
+          doc.image(fp, { fit: [500, imageWorkflow ? 320 : 280], align: "left" });
         } catch {
           doc.fontSize(9).fillColor("#666").text("[Image unavailable]");
           doc.fillColor("#000");
         }
       } else if (p?.imageUrl) {
-        doc.moveDown(0.2);
         doc.fontSize(9).fillColor("#666").text(`Image URL: ${p.imageUrl}`);
         doc.fillColor("#000");
+      }
+
+      doc.moveDown(0.35);
+      const step =
+        p?.workflow_step != null && !Number.isNaN(Number(p.workflow_step))
+          ? `Step ${p.workflow_step}: `
+          : `${i + 1}. `;
+      doc
+        .fontSize(11)
+        .font("Helvetica-Bold")
+        .text(`${step}${p?.title || `Panel ${i + 1}`}`, { width: 500 });
+      doc.font("Helvetica");
+      if (p?.paragraph) {
+        doc.moveDown(0.15);
+        doc.fontSize(9).text(String(p.paragraph), { width: 500 });
       }
       if (i < panels.length - 1) doc.addPage();
     });

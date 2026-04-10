@@ -86,6 +86,15 @@ export function renderComparison(doc, data) {
     subheading(doc, "What is common with competitors");
     proseMd(doc, data.common_ground_md);
   }
+  if ((data.branch_comparison_md || "").trim()) {
+    subheading(doc, "Strategic branch comparison");
+    paragraph(
+      doc,
+      "GTM / ICP / pricing / deployment branches: us vs each competitor, tradeoffs.",
+      8
+    );
+    proseMd(doc, data.branch_comparison_md);
+  }
   const udi = data.unique_differentiation_ideas || [];
   if (udi.length > 0) {
     subheading(doc, "How to be more unique");
@@ -164,6 +173,11 @@ export function renderComparison(doc, data) {
       }
       if (c.common_with_us)
         paragraph(doc, `Common with us: ${c.common_with_us}`);
+      if ((c.strategic_branch_vs_us || "").trim())
+        paragraph(
+          doc,
+          `Strategic branch vs us: ${c.strategic_branch_vs_us}`
+        );
       paragraph(doc, `Their thesis (inferred): ${c.their_thesis_inferred || ""}`);
       paragraph(doc, "Their strengths:");
       bullets(doc, c.their_strengths, 18);
@@ -493,8 +507,26 @@ export function renderUniqueness(doc, data) {
   proseMd(doc, data.next_30_day_uniqueness_plan_md);
 }
 
-export function renderVcSimulator(doc, data) {
-  if (!data) return;
+/**
+ * @param {import("pdfkit")} doc
+ * @param {unknown} data
+ * @param {{ vcPersona?: string, pitchNotes?: string } | undefined} meta
+ */
+export function renderVcSimulator(doc, data, meta) {
+  if (meta?.vcPersona || meta?.pitchNotes) {
+    subheading(doc, "Inputs (as in the app)");
+    if (meta.vcPersona) paragraph(doc, `VC persona: ${meta.vcPersona}`);
+    if (meta.pitchNotes) paragraph(doc, `Extra pitch notes: ${meta.pitchNotes}`);
+    doc.moveDown(0.15);
+  }
+  if (data == null) {
+    subheading(doc, "Result");
+    paragraph(
+      doc,
+      'No simulator output yet. Use Run VC simulator in the app (section 6); results are saved on your profile and included on the next export.'
+    );
+    return;
+  }
   if (data._parse_error) return renderParseError(doc, data);
   if (data._analysis_error) return renderAnalysisError(doc, data);
   subheading(doc, "Simulated persona");
@@ -524,7 +556,10 @@ export function renderVcSimulator(doc, data) {
  */
 export function renderIntelligencePanelText(doc, key, data) {
   if (data == null) {
-    paragraph(doc, "(No data for this section.)");
+    paragraph(
+      doc,
+      "No result for this run in the export bundle. Run this button in section 4 (Intelligence runs) and export again, or use “Download PDF report” so every analysis is executed and saved first."
+    );
     return;
   }
   switch (key) {
