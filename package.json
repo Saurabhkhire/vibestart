@@ -1,0 +1,16 @@
+{
+  "name": "vibestart",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend",
+    "backend": "npm --prefix backend run dev",
+    "frontend": "npm --prefix frontend run dev",
+    "dev": "concurrently -n backend,frontend -c cyan,magenta \"npm run backend\" \"wait-on -t 120000 http-get://127.0.0.1:3001/api/health && npm run frontend\"",
+    "start": "npm run dev",
+    "dev:all": "npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "wait-on": "^8.0.1"
+  }
+}
