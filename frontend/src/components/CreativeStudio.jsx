@@ -1,9 +1,9 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { creativeAd, creativeStory } from "../api.js";
+import { creativeAd, creativeStory, downloadStoryPdf } from "../api.js";
 
-export function CreativeStudio({ profileId }) {
+export function CreativeStudio({ profileId, startupText, startupUrl }) {
   const [adMode, setAdMode] = useState("text");
   const [storyMode, setStoryMode] = useState("text");
   const [adResult, setAdResult] = useState(null);
@@ -11,9 +11,16 @@ export function CreativeStudio({ profileId }) {
   const [localErr, setLocalErr] = useState("");
   const [busy, setBusy] = useState("");
 
+  const canRun =
+    !!(startupText || "").trim() ||
+    !!(startupUrl || "").trim() ||
+    !!profileId;
+
   const runAd = async () => {
-    if (!profileId) {
-      setLocalErr("Save your startup profile in section 1 first.");
+    if (!canRun) {
+      setLocalErr(
+        "Add a startup description and/or website URL in section 1 first."
+      );
       return;
     }
     setLocalErr("");
@@ -21,7 +28,9 @@ export function CreativeStudio({ profileId }) {
     setAdResult(null);
     try {
       const data = await creativeAd({
-        profileId,
+        profileId: profileId || undefined,
+        startupText: (startupText || "").trim() || undefined,
+        startupUrl: (startupUrl || "").trim() || undefined,
         output: adMode === "image" ? "image" : "text",
       });
       setAdResult(data);
@@ -33,8 +42,10 @@ export function CreativeStudio({ profileId }) {
   };
 
   const runStory = async () => {
-    if (!profileId) {
-      setLocalErr("Save your startup profile in section 1 first.");
+    if (!canRun) {
+      setLocalErr(
+        "Add a startup description and/or website URL in section 1 first."
+      );
       return;
     }
     setLocalErr("");
@@ -42,7 +53,9 @@ export function CreativeStudio({ profileId }) {
     setStoryResult(null);
     try {
       const data = await creativeStory({
-        profileId,
+        profileId: profileId || undefined,
+        startupText: (startupText || "").trim() || undefined,
+        startupUrl: (startupUrl || "").trim() || undefined,
         output: storyMode === "images" ? "images" : "text",
       });
       setStoryResult(data);
@@ -56,13 +69,24 @@ export function CreativeStudio({ profileId }) {
   const ad = adResult?.result;
   const story = storyResult?.result;
   const lastCtx = storyResult?.context || adResult?.context;
+  const downloadAdImage = () => {
+    const u = ad?.image?.url;
+    if (!u) return;
+    const a = document.createElement("a");
+    a.href = u;
+    a.download = "vibestart-ad.png";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
 
   return (
     <div className="creative-studio">
       <p className="hint">
-        Uses your <strong>saved profile</strong> only: the startup URL and/or
-        pitch from section 1, plus a fresh scrape of that URL when it&apos;s
-        available. You don&apos;t enter a separate link here.
+        Uses the <strong>description and website URL from section 1</strong>{" "}
+        (whatever you&apos;ve typed now — saved or not). We scrape the URL when
+        possible and blend your pitch. No separate URL field here.
       </p>
       {lastCtx && (
         <p className="hint tiny-disclaimer">
@@ -106,13 +130,13 @@ export function CreativeStudio({ profileId }) {
                 checked={adMode === "image"}
                 onChange={() => setAdMode("image")}
               />
-              Text + image (DALL·E)
+              Image ad only (with in-image text + brand)
             </label>
           </div>
           <button
             type="button"
             className="btn accent"
-            disabled={!!busy || !profileId}
+            disabled={!!busy || !canRun}
             onClick={runAd}
           >
             {busy === "ad" ? "Generating…" : "Generate ad"}
@@ -121,36 +145,52 @@ export function CreativeStudio({ profileId }) {
           {ad?._parse_error && (
             <pre className="json-block">{ad.raw}</pre>
           )}
-          {ad && !ad._parse_error && ad.copy && (
+          {ad && !ad._parse_error && (
             <div className="creative-output">
-              <p className="muted-label">Headline</p>
-              <p className="ad-headline">{ad.copy.headline}</p>
-              <p className="muted-label">Subhead</p>
-              <p className="idea-card-p">{ad.copy.subhead}</p>
-              <p className="muted-label">Body</p>
-              <p className="idea-card-p">{ad.copy.body}</p>
-              <p className="muted-label">CTA</p>
-              <p className="pullquote tight-pull">{ad.copy.cta}</p>
-              {ad.copy.platform_variants && (
+              {ad.mode !== "image" && ad.copy && (
                 <>
-                  <p className="muted-label">Platform variants</p>
-                  <ul className="simple-list tight">
-                    {Object.entries(ad.copy.platform_variants).map(
-                      ([k, v]) => (
-                        <li key={k}>
-                          <strong>{k}</strong> — {v}
-                        </li>
-                      )
-                    )}
-                  </ul>
+                  <p className="muted-label">Headline</p>
+                  <p className="ad-headline">{ad.copy.headline}</p>
+                  <p className="muted-label">Subhead</p>
+                  <p className="idea-card-p">{ad.copy.subhead}</p>
+                  <p className="muted-label">Body</p>
+                  <p className="idea-card-p">{ad.copy.body}</p>
+                  <p className="muted-label">CTA</p>
+                  <p className="pullquote tight-pull">{ad.copy.cta}</p>
+                  {ad.copy.platform_variants && (
+                    <>
+                      <p className="muted-label">Platform variants</p>
+                      <ul className="simple-list tight">
+                        {Object.entries(ad.copy.platform_variants).map(
+                          ([k, v]) => (
+                            <li key={k}>
+                              <strong>{k}</strong> — {v}
+                            </li>
+                          )
+                        )}
+                      </ul>
+                    </>
+                  )}
+                  {(ad.copy.hashtags || []).length > 0 && (
+                    <p className="hashtag-line">
+                      {(ad.copy.hashtags || []).join(" ")}
+                    </p>
+                  )}
                 </>
               )}
-              {(ad.copy.hashtags || []).length > 0 && (
-                <p className="hashtag-line">
-                  {(ad.copy.hashtags || []).join(" ")}
-                </p>
+              {ad.mode === "image" && (
+                <>
+                  <p className="hint tiny-disclaimer">
+                    Image-only mode: ad copy is embedded inside the visual.
+                  </p>
+                  {ad.copy?.brand_name && (
+                    <p className="hint tiny-disclaimer">
+                      Brand in ad: <strong>{ad.copy.brand_name}</strong>
+                    </p>
+                  )}
+                </>
               )}
-              {ad.copy.disclaimer && (
+              {ad.copy?.disclaimer && (
                 <p className="hint tiny-disclaimer">{ad.copy.disclaimer}</p>
               )}
               {ad.image?.url && (
@@ -161,6 +201,9 @@ export function CreativeStudio({ profileId }) {
                     src={ad.image.url}
                     alt="Generated ad visual"
                   />
+                  <button type="button" className="btn" onClick={downloadAdImage}>
+                    Download ad image
+                  </button>
                 </div>
               )}
             </div>
@@ -186,13 +229,13 @@ export function CreativeStudio({ profileId }) {
                 checked={storyMode === "images"}
                 onChange={() => setStoryMode("images")}
               />
-              Story as images (panels)
+              Story as image panels (comic-style)
             </label>
           </div>
           <button
             type="button"
             className="btn"
-            disabled={!!busy || !profileId}
+            disabled={!!busy || !canRun}
             onClick={runStory}
           >
             {busy === "story" ? "Generating…" : "Generate story"}
@@ -205,8 +248,12 @@ export function CreativeStudio({ profileId }) {
             !story._parse_error &&
             (story.story_markdown || (story.panels || []).length > 0) && (
             <div className="creative-output">
-              <h4 className="story-title">{story.title}</h4>
-              <p className="pullquote tight-pull">{story.hook}</p>
+              {story.mode !== "images" && (
+                <>
+                  <h4 className="story-title">{story.title}</h4>
+                  <p className="pullquote tight-pull">{story.hook}</p>
+                </>
+              )}
               {story.mode === "text" && (
                 <div className="prose-md">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -228,23 +275,41 @@ export function CreativeStudio({ profileId }) {
                 </>
               )}
               {story.mode === "images" && (story.panels || []).length > 0 && (
-                <div className="story-panels-grid">
-                  {(story.panels || []).map((p, i) => (
-                    <figure key={i} className="story-panel-fig">
-                      {p.imageUrl && (
-                        <img
-                          className="gen-image"
-                          src={p.imageUrl}
-                          alt={p.title || `Panel ${i + 1}`}
-                        />
-                      )}
-                      <figcaption>
-                        <strong>{p.title}</strong>
-                        <p>{p.paragraph}</p>
-                      </figcaption>
-                    </figure>
-                  ))}
-                </div>
+                <>
+                  <div className="story-panels-grid">
+                    {(story.panels || []).map((p, i) => (
+                      <figure key={i} className="story-panel-fig">
+                        {p.imageUrl && (
+                          <img
+                            className="gen-image"
+                            src={p.imageUrl}
+                            alt={p.title || `Panel ${i + 1}`}
+                          />
+                        )}
+                        <figcaption>
+                          <strong>{p.title || `Panel ${i + 1}`}</strong>
+                          <p>{p.paragraph}</p>
+                        </figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => downloadStoryPdf(story)}
+                  >
+                    Download story as PDF
+                  </button>
+                </>
+              )}
+              {story.mode !== "images" && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => downloadStoryPdf(story)}
+                >
+                  Download story as PDF
+                </button>
               )}
             </div>
           )}

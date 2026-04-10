@@ -148,6 +148,29 @@ function ComparisonView({ data }) {
           <ProseMarkdown>{data.recent_activity_and_events_md}</ProseMarkdown>
         </Section>
       )}
+      {(data.common_ground_md || "").trim() && (
+        <Section title="What is common with competitors">
+          <ProseMarkdown>{data.common_ground_md}</ProseMarkdown>
+        </Section>
+      )}
+      {(data.unique_differentiation_ideas || []).length > 0 && (
+        <Section title="How to be more unique">
+          <ul className="card-list">
+            {(data.unique_differentiation_ideas || []).map((x, i) => (
+              <li key={i} className="idea-card">
+                <strong className="idea-card-title">{x.idea}</strong>
+                <p className="idea-card-p">
+                  <span className="muted-label">Why unique</span> {x.why_unique}
+                </p>
+                <p className="idea-card-p">
+                  <span className="muted-label">Next 30 days</span>{" "}
+                  {x.execution_next_30_days}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
       <Section title="Competitor scorecard (quant / qualitative)">
         <ProseMarkdown>{data.competitor_scorecard_md}</ProseMarkdown>
       </Section>
@@ -269,6 +292,12 @@ function ComparisonView({ data }) {
                     ))}
                   </ul>
                 </>
+              )}
+              {c.common_with_us && (
+                <p className="idea-card-p">
+                  <span className="muted-label">Common with us</span>{" "}
+                  {c.common_with_us}
+                </p>
               )}
               <p className="idea-card-p">
                 <span className="muted-label">Their thesis (inferred)</span>{" "}
@@ -874,12 +903,94 @@ function ExtrasView({ data }) {
   );
 }
 
+function UniquenessView({ data }) {
+  if (data._parse_error) return <pre className="json-block">{data.raw}</pre>;
+  return (
+    <>
+      <Section title="Uniqueness diagnosis">
+        <ProseMarkdown>{data.uniqueness_diagnosis}</ProseMarkdown>
+      </Section>
+      <Section title="Where we risk looking generic">
+        <ul className="simple-list roast-list">
+          {(data.where_we_risk_looking_generic || []).map((x, i) => (
+            <li key={i}>{x}</li>
+          ))}
+        </ul>
+      </Section>
+      <Section title="Unique angle candidates">
+        <ul className="card-list">
+          {(data.unique_angle_candidates || []).map((x, i) => (
+            <li key={i} className="idea-card">
+              <strong className="idea-card-title">{x.angle}</strong>
+              <p className="idea-card-p">
+                <span className="muted-label">Hard to copy</span>{" "}
+                {x.why_it_is_hard_to_copy}
+              </p>
+              <p className="idea-card-p">
+                <span className="muted-label">Proof needed</span> {x.proof_we_need}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </Section>
+      <Section title="Signature experiences to build">
+        <ul className="card-list">
+          {(data.signature_experiences_to_build || []).map((x, i) => (
+            <li key={i} className="idea-card">
+              <strong className="idea-card-title">{x.experience}</strong>
+              <p className="idea-card-p">
+                <span className="muted-label">Who for</span> {x.who_it_is_for}
+              </p>
+              <p className="idea-card-p">{x.what_makes_it_memorable}</p>
+            </li>
+          ))}
+        </ul>
+      </Section>
+      <Section title="Moat blueprints">
+        <ul className="card-list">
+          {(data.moat_blueprints || []).map((x, i) => (
+            <li key={i} className="idea-card">
+              <strong className="idea-card-title">{x.moat}</strong>
+              <p className="idea-card-p">
+                <span className="muted-label">Mechanism</span> {x.mechanism}
+              </p>
+              <p className="idea-card-p">
+                <span className="muted-label">Early signal</span> {x.early_signal}
+              </p>
+              <p className="idea-card-p">
+                <span className="muted-label">Time horizon</span> {x.time_horizon}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </Section>
+      <Section title="Distinct messaging">
+        <ul className="card-list">
+          {(data.messaging_that_sounds_distinct || []).map((x, i) => (
+            <li key={i} className="idea-card">
+              <strong>{x.message}</strong>
+              <p className="idea-card-p">
+                <span className="muted-label">Avoid sounding like</span>{" "}
+                {x.avoid_sounding_like}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </Section>
+      <Section title="30-day uniqueness plan">
+        <ProseMarkdown>{data.next_30_day_uniqueness_plan_md}</ProseMarkdown>
+      </Section>
+    </>
+  );
+}
+
 const views = {
   comparison: ComparisonView,
   roast: RoastView,
   jobs: JobsView,
   collaborations: CollabView,
   extras: ExtrasView,
+  uniqueness: UniquenessView,
   vcs: VcView,
   gaps: GapsView,
   ideas: IdeasView,

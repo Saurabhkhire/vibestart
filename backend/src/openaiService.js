@@ -96,6 +96,7 @@ function normalizeDeepDives(raw, competitorSummaries) {
       recent_signals_them: [],
       recent_signals_us: [],
       possible_shared_events_or_themes: [],
+      common_with_us: "",
       their_thesis_inferred:
         "No dedicated analysis returned for this competitor — re-run comparison or shorten the competitor list.",
       their_strengths: [],
@@ -129,6 +130,7 @@ export async function comparisonAndBrand({
     "Explicitly call out where THEY are ahead vs where WE are ahead; infer company stage (pre-seed/seed/Series A+/growth/enterprise) from context and compare. " +
     "For each competitor, explain: if we are behind, concrete moves to level up; if we are ahead, what they could plausibly do to catch up (and how we stay ahead). " +
     "Include a 'recent activity & events' angle: infer plausible signals from the supplied scrapes and brief (launches, hiring, conferences, partnerships). " +
+    "Also explain what is COMMON between us and each competitor (shared motions/features/ICP), then propose concrete uniqueness plays so we avoid becoming a commodity. " +
     "Suggest industry events or themes where our motion might overlap with theirs; flag that items are model-inferred and must be verified in the news/LinkedIn. " +
     "Be specific; flag uncertainty when the scrape is thin.";
 
@@ -158,6 +160,8 @@ export async function comparisonAndBrand({
       "ahead_behind_landscape_md": string (markdown: where they lead / we lead, by theme),
       "leveling_playbook_md": string (markdown: if behind — our plays; if ahead — their catch-up plays + how we defend),
       "recent_activity_and_events_md": string (markdown: recent signals for us vs them; overlapping conferences/themes to watch; verification note),
+      "common_ground_md": string (markdown: what is common between us and competitors),
+      "unique_differentiation_ideas": [{"idea": string, "why_unique": string, "execution_next_30_days": string}],
       "competitor_scorecard_md": string,
       "head_to_head_matrix_md": string,
       "feature_matrix_md": string,
@@ -178,6 +182,7 @@ export async function comparisonAndBrand({
         "recent_signals_them": string[],
         "recent_signals_us": string[],
         "possible_shared_events_or_themes": string[],
+        "common_with_us": string,
         "their_thesis_inferred": string,
         "their_strengths": string[],
         "their_weaknesses": string[],
@@ -428,6 +433,32 @@ export async function uniqueExtras({ combinedSummary, competitorSummaries }) {
       "pricing_hypotheses": string[],
       "regulatory_or_policy_watch": string[],
       "metric_dashboard": string[]
+    }`
+  );
+}
+
+export async function uniqueEdgeBlueprint({
+  combinedSummary,
+  competitorSummaries,
+}) {
+  void competitorSummaries;
+  const system =
+    "You are a product strategy advisor helping a startup become meaningfully unique (not just incrementally better). " +
+    "Use only the startup brief. Focus on sharp differentiation, ownable moats, and practical execution.";
+  const user = JSON.stringify({
+    startup: combinedSummary,
+  });
+  return jsonChat(
+    system,
+    user,
+    `Schema: {
+      "uniqueness_diagnosis": string,
+      "where_we_risk_looking_generic": string[],
+      "unique_angle_candidates": [{"angle": string, "why_it_is_hard_to_copy": string, "proof_we_need": string}],
+      "signature_experiences_to_build": [{"experience": string, "who_it_is_for": string, "what_makes_it_memorable": string}],
+      "moat_blueprints": [{"moat": string, "mechanism": string, "early_signal": string, "time_horizon": string}],
+      "messaging_that_sounds_distinct": [{"message": string, "avoid_sounding_like": string}],
+      "next_30_day_uniqueness_plan_md": string
     }`
   );
 }

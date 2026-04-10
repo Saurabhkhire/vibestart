@@ -23,6 +23,7 @@ const EMPTY_PANELS = {
   jobs: null,
   collaborations: null,
   extras: null,
+  uniqueness: null,
   vcs: null,
   gaps: null,
   ideas: null,
@@ -34,6 +35,7 @@ const PANEL_TITLES = {
   jobs: "Hiring & job opportunities",
   collaborations: "Collaborations",
   extras: "Moats, pivots & extras",
+  uniqueness: "Unique edge blueprint",
   vcs: "VCs you may have missed",
   gaps: "Strategic gaps",
   ideas: "Startup ideas for you",
@@ -211,6 +213,19 @@ export default function App() {
       } catch {
         /* profile fetch optional for PDF */
       }
+      const founderPreferences =
+        vcStage.trim() ||
+        vcGeo.trim() ||
+        vcRaise.trim() ||
+        vcFocus.trim()
+          ? {
+              ...(vcStage.trim() && { stage: vcStage.trim() }),
+              ...(vcGeo.trim() && { geography: vcGeo.trim() }),
+              ...(vcRaise.trim() && { raise_amount_band: vcRaise.trim() }),
+              ...(vcFocus.trim() && { investor_type_focus: vcFocus.trim() }),
+            }
+          : undefined;
+
       await exportReportPdf({
         profileId,
         combinedSummary: lastProfile?.combinedSummary || "",
@@ -220,7 +235,8 @@ export default function App() {
         competitors,
         panels,
         vcSimulator: vcSimResult,
-        mergeSnapshots: true,
+        founderPreferences,
+        runAllAnalyses: true,
       });
     } catch (e) {
       setError(e.message);
@@ -379,9 +395,10 @@ export default function App() {
         <section className="card span-2">
           <h2>4. Intelligence runs</h2>
           <p className="hint">
-            Uses your SQLite-backed context + OpenAI. Add competitors first for
-            richer output. VC names and match scores are model estimates—always
-            verify thesis and outreach yourself.
+            This is your startup intelligence copilot: competitor spying,
+            shortcomings, ideas, and strategic recommendations from your profile.
+            Deep comparison uses competitor data; other runs stay product-focused.
+            VC names and match scores are model estimates—always verify.
           </p>
           <div className="btn-row btn-row--wrap">
             <button
@@ -448,6 +465,14 @@ export default function App() {
             >
               Moats, pivots & extras
             </button>
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={!!loading}
+              onClick={() => run("uniqueness")}
+            >
+              Unique edge blueprint
+            </button>
           </div>
           {error && <p className="err">{error}</p>}
         </section>
@@ -455,14 +480,18 @@ export default function App() {
         <section className="card span-2">
           <h2>5. Creative studio (ads &amp; stories)</h2>
           <p className="hint">
-            Context comes from <strong>section 1</strong> (your saved URL and/or
-            pitch). We scrape that URL when possible and blend your combined
-            brief, then generate channel-ready ad copy — with an optional{" "}
-            <strong>DALL·E</strong> image — or a brand story as{" "}
-            <strong>text</strong> or a <strong>visual storyboard</strong>{" "}
-            (several images). No separate URL field here.
+            Context comes from <strong>section 1</strong> — the description
+            and/or URL you have there now (sent on each generate, even before
+            you save). We scrape the URL when possible and blend your pitch.
+            Channel-ready ad copy — optional <strong>DALL·E</strong> image — or
+            a brand story as <strong>text</strong> or <strong>visual
+            storyboard</strong>. No extra URL field here.
           </p>
-          <CreativeStudio profileId={profileId} />
+          <CreativeStudio
+            profileId={profileId}
+            startupText={startupText}
+            startupUrl={startupUrl}
+          />
         </section>
 
         <section className="card span-2">
@@ -503,15 +532,16 @@ export default function App() {
               onClick={handleExportPdf}
             >
               {loading === "pdf"
-                ? "Building PDF…"
-                : "Download PDF report (all sections)"}
+                ? "Running all analyses & building PDF…"
+                : "Download PDF report (all intelligence runs)"}
             </button>
           </div>
           <p className="hint pdf-hint">
-            PDF merges what&apos;s on screen plus the{" "}
-            <strong>latest saved snapshots</strong> from the database for any
-            analysis you already ran this session—run each button once, then
-            export.
+            Export <strong>automatically runs every intelligence panel</strong>{" "}
+            (comparison, VCs, roast, hiring, gaps, ideas, collabs, extras,
+            uniqueness) using your current profile, then builds one PDF with the
+            full JSON for each. VC preferences from section 3 apply to the VCs
+            section. This can take several minutes.
           </p>
         </section>
 

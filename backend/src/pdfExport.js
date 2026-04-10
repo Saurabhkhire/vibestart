@@ -1,5 +1,9 @@
 import PDFDocument from "pdfkit";
 import { getDb } from "./db.js";
+import {
+  renderIntelligencePanelText,
+  renderVcSimulator,
+} from "./pdfPanelText.js";
 
 const PANEL_ORDER = [
   ["comparison", "Deep competitor comparison"],
@@ -10,7 +14,11 @@ const PANEL_ORDER = [
   ["ideas", "Startup ideas for you"],
   ["collaborations", "Collaborations"],
   ["extras", "Moats, pivots & extras"],
+  ["uniqueness", "Unique edge blueprint"],
 ];
+
+/** Keys in PDF section order — keep in sync with intelligence runs. */
+export const PDF_INTELLIGENCE_KEYS = PANEL_ORDER.map(([k]) => k);
 
 export function getLatestSnapshotMap(profileId) {
   const db = getDb();
@@ -45,12 +53,6 @@ function section(doc, title) {
   doc.fontSize(14).fillColor("#111").text(title, { underline: true });
   doc.moveDown(0.6);
   doc.fillColor("#000");
-}
-
-function jsonBlock(doc, data) {
-  const s = JSON.stringify(data, null, 2);
-  doc.font("Courier").fontSize(7.5).text(s, { width: 500, align: "left" });
-  doc.font("Helvetica");
 }
 
 /**
@@ -126,12 +128,12 @@ export async function buildReportPdf(input) {
       const data = panels[key];
       if (data == null) continue;
       section(doc, label);
-      jsonBlock(doc, data);
+      renderIntelligencePanelText(doc, key, data);
     }
 
     if (input.vcSimulator != null) {
       section(doc, "VC pitch simulator (role-play response)");
-      jsonBlock(doc, input.vcSimulator);
+      renderVcSimulator(doc, input.vcSimulator);
     }
 
     doc.end();

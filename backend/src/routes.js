@@ -4,8 +4,12 @@ import { getDb } from "./db.js";
 import { scrapeUrl, scrapeMany } from "./scraper.js";
 import * as ai from "./openaiService.js";
 import { asyncRoute } from "./asyncRoute.js";
-import { buildReportPdf } from "./pdfExport.js";
+import { buildReportPdf, getLatestSnapshotMap } from "./pdfExport.js";
 import { creativeRouter } from "./creativeRoutes.js";
+import {
+  computeIntelligenceResult,
+  runAllIntelligenceAnalyses,
+} from "./intelligenceRunner.js";
 
 export const api = Router();
 
@@ -70,6 +74,7 @@ api.post("/profile", asyncRoute(async (req, res) => {
     }
 
     let startupScrape = null;
+    let scrapeError = null;
     if (url) {
       try {
         startupScrape = await scrapeUrl(url, {
@@ -77,10 +82,7 @@ api.post("/profile", asyncRoute(async (req, res) => {
           kind: "startup_site",
         });
       } catch (e) {
-        return res.status(502).json({
-          error: "Failed to scrape startup URL",
-          detail: e.message,
-        });
+        scrapeError = e.message || String(e);
       }
     }
 
@@ -90,6 +92,12 @@ api.post("/profile", asyncRoute(async (req, res) => {
         startupText: text,
         startupScrape,
       });
+    } else if (url && scrapeError) {
+      combined = {
+        combined_summary: `We could not fetch ${url}. Add a short pitch in the text area above and save again. (${scrapeError})`,
+        assumptions: [`Startup URL fetch failed: ${scrapeError}`],
+        tags: [],
+      };
     }
 
     const summary = combined.combined_summary || text || "";
@@ -104,6 +112,7 @@ api.post("/profile", asyncRoute(async (req, res) => {
       assumptions: combined.assumptions,
       tags: combined.tags,
       startupScrape,
+      scrapeWarning: scrapeError || undefined,
     });
   } catch (e) {
     console.error(e);
@@ -194,6 +203,7 @@ api.post("/analyze/:key", asyncRoute(async (req, res) => {
     "jobs",
     "collaborations",
     "extras",
+    "uniqueness",
     "vcs",
     "gaps",
     "ideas",
@@ -214,65 +224,11 @@ api.post("/analyze/:key", asyncRoute(async (req, res) => {
       return res.status(400).json({ error: "Profile has no combined summary." });
     }
 
-    // Competitor scrapes are used only for deep competitor comparison — all other
-    // intelligence runs are product/startup-only so prompts stay unbiased.
-    const competitorsOnlyForComparison =
-      key === "comparison" ? competitorSummaries : [];
-
-    let result;
-    switch (key) {
-      case "comparison":
-        result = await ai.comparisonAndBrand({
-          combinedSummary,
-          competitorSummaries,
-        });
-        break;
-      case "roast":
-        result = await ai.roastStartup({
-          combinedSummary,
-          competitorSummaries: competitorsOnlyForComparison,
-        });
-        break;
-      case "jobs":
-        result = await ai.jobsFromCompetitors({
-          combinedSummary,
-          competitorSummaries: competitorsOnlyForComparison,
-        });
-        break;
-      case "collaborations":
-        result = await ai.collaborationOpportunities({
-          combinedSummary,
-          competitorSummaries: competitorsOnlyForComparison,
-        });
-        break;
-      case "extras":
-        result = await ai.uniqueExtras({
-          combinedSummary,
-          competitorSummaries: competitorsOnlyForComparison,
-        });
-        break;
-      case "vcs":
-        result = await ai.potentialVCsWithMatch({
-          combinedSummary,
-          competitorSummaries: competitorsOnlyForComparison,
-          founderPreferences: founderPreferences || undefined,
-        });
-        break;
-      case "gaps":
-        result = await ai.strategicGapsAnalysis({
-          combinedSummary,
-          competitorSummaries: competitorsOnlyForComparison,
-        });
-        break;
-      case "ideas":
-        result = await ai.startupIdeasTailored({
-          combinedSummary,
-          competitorSummaries: competitorsOnlyForComparison,
-        });
-        break;
-      default:
-        result = {};
-    }
+    const result = await computeIntelligenceResult(
+      key,
+      { combinedSummary, competitorSummaries },
+      founderPreferences
+    );
 
     const snapshotId = saveSnapshot(profileId, key, result);
     return res.json({ profileId, analysis: key, snapshotId, result });
@@ -315,6 +271,28 @@ api.post("/simulate/vc", asyncRoute(async (req, res) => {
 api.post("/export/pdf", asyncRoute(async (req, res) => {
   try {
     const b = req.body || {};
+    let mergedPanels = { ...(b.panels || {}) };
+
+    if (b.runAllAnalyses !== false && b.profileId) {
+      const bundle = await loadContextBundle(b.profileId);
+      if (!bundle) {
+        return res.status(404).json({ error: "Profile not found." });
+      }
+      if (!bundle.combinedSummary.trim()) {
+        return res
+          .status(400)
+          .json({ error: "Profile has no combined summary." });
+      }
+      await runAllIntelligenceAnalyses(
+        b.profileId,
+        bundle,
+        b.founderPreferences,
+        saveSnapshot
+      );
+      const snaps = getLatestSnapshotMap(b.profileId);
+      mergedPanels = { ...mergedPanels, ...snaps };
+    }
+
     const buf = await buildReportPdf({
       profileId: b.profileId,
       combinedSummary: b.combinedSummary,
@@ -322,9 +300,10 @@ api.post("/export/pdf", asyncRoute(async (req, res) => {
       tags: b.tags,
       startupUrl: b.startupUrl,
       competitors: b.competitors,
-      panels: b.panels,
+      panels: mergedPanels,
       vcSimulator: b.vcSimulator,
-      mergeSnapshots: b.mergeSnapshots !== false,
+      mergeSnapshots:
+        b.runAllAnalyses !== false && b.profileId ? false : b.mergeSnapshots !== false,
     });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(

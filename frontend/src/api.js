@@ -68,6 +68,34 @@ export function creativeStory(body) {
   });
 }
 
+export async function downloadStoryPdf(story) {
+  const res = await fetch("/api/creative/story/pdf", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ story }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let data = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { error: text.slice(0, 300) };
+    }
+    throw new Error(data.error || res.statusText || "Story PDF export failed");
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "vibestart-storyboard.pdf";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function exportReportPdf(payload) {
   const res = await fetch("/api/export/pdf", {
     method: "POST",
