@@ -299,7 +299,6 @@ api.post("/simulate/vc", asyncRoute(async (req, res) => {
 
     const result = await ai.simulateVcPitch({
       combinedSummary,
-      competitorSummaries: [],
       vcPersona,
       pitchNotes,
     });

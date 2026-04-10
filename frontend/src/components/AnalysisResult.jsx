@@ -128,18 +128,26 @@ function ComparisonView({ data }) {
           <p className="hint tight-hint">{data.data_freshness_note}</p>
         </Section>
       )}
-      <Section title="Stage & company maturity">
-        <ProseMarkdown>{data.stage_comparison_md}</ProseMarkdown>
-      </Section>
-      <Section title="Where you lead vs where they lead">
-        <ProseMarkdown>{data.ahead_behind_landscape_md}</ProseMarkdown>
-      </Section>
-      <Section title="Level up / catch-up playbook">
-        <ProseMarkdown>{data.leveling_playbook_md}</ProseMarkdown>
-      </Section>
-      <Section title="Recent activity & events (verify externally)">
-        <ProseMarkdown>{data.recent_activity_and_events_md}</ProseMarkdown>
-      </Section>
+      {(data.stage_comparison_md || "").trim() && (
+        <Section title="Stage & company maturity">
+          <ProseMarkdown>{data.stage_comparison_md}</ProseMarkdown>
+        </Section>
+      )}
+      {(data.ahead_behind_landscape_md || "").trim() && (
+        <Section title="Where you lead vs where they lead">
+          <ProseMarkdown>{data.ahead_behind_landscape_md}</ProseMarkdown>
+        </Section>
+      )}
+      {(data.leveling_playbook_md || "").trim() && (
+        <Section title="Level up / catch-up playbook">
+          <ProseMarkdown>{data.leveling_playbook_md}</ProseMarkdown>
+        </Section>
+      )}
+      {(data.recent_activity_and_events_md || "").trim() && (
+        <Section title="Recent activity & events (verify externally)">
+          <ProseMarkdown>{data.recent_activity_and_events_md}</ProseMarkdown>
+        </Section>
+      )}
       <Section title="Competitor scorecard (quant / qualitative)">
         <ProseMarkdown>{data.competitor_scorecard_md}</ProseMarkdown>
       </Section>
@@ -457,9 +465,9 @@ function JobsView({ data }) {
           ))}
         </ul>
       </Section>
-      <Section title="Roles to poach or mirror">
+      <Section title="Benchmark roles (market patterns)">
         <ul className="card-list">
-          {(data.roles_to_poach_or_mirror || []).map((r, i) => (
+          {(data.benchmark_roles_in_market || data.roles_to_poach_or_mirror || []).map((r, i) => (
             <li key={i} className="idea-card">
               <strong className="idea-card-title">
                 {r.title}{" "}
@@ -541,10 +549,10 @@ function JobsView({ data }) {
                 {j.budget_band}
               </p>
               <p className="idea-card-p">{j.sourcing_playbook}</p>
-              {j.competitor_team_to_mirror && (
+              {(j.peer_benchmark || j.competitor_team_to_mirror) && (
                 <p className="idea-card-p">
-                  <span className="muted-label">Mirror / learn from</span>{" "}
-                  {j.competitor_team_to_mirror}
+                  <span className="muted-label">Peer / benchmark</span>{" "}
+                  {j.peer_benchmark || j.competitor_team_to_mirror}
                 </p>
               )}
             </li>
@@ -557,9 +565,12 @@ function JobsView({ data }) {
       <Section title="Job search queries">
         <ChipList items={data.job_search_queries} variant="teal" />
       </Section>
-      <Section title="Competitor career pages to watch">
+      <Section title="Career pages (industry hiring patterns)">
         <ul className="simple-list mono-list">
-          {(data.competitor_career_pages_to_watch || []).map((s, i) => (
+          {(data.career_pages_for_industry_patterns ||
+            data.competitor_career_pages_to_watch ||
+            []
+          ).map((s, i) => (
             <li key={i}>{s}</li>
           ))}
         </ul>
@@ -712,10 +723,10 @@ function GapsView({ data }) {
               <p className="idea-card-p">
                 <span className="muted-label">Evidence</span> {x.evidence}
               </p>
-              {x.competitor_advantage_if_any && (
+              {(x.market_pressure_if_any || x.competitor_advantage_if_any) && (
                 <p className="idea-card-p">
-                  <span className="muted-label">Competitor angle</span>{" "}
-                  {x.competitor_advantage_if_any}
+                  <span className="muted-label">Market / category pressure</span>{" "}
+                  {x.market_pressure_if_any || x.competitor_advantage_if_any}
                 </p>
               )}
               <p className="idea-card-p">
@@ -736,7 +747,7 @@ function GapsView({ data }) {
       {gapBlock("Team & execution gaps", data.team_execution_gaps)}
       {gapBlock("Market & distribution gaps", data.market_and_distribution_gaps)}
       {gapBlock("Fundraising narrative gaps", data.fundraising_story_gaps)}
-      <Section title="Competitive blind spots">
+      <Section title="Category / market blind spots">
         <ul className="simple-list">
           {(data.competitive_blind_spots || []).map((s, i) => (
             <li key={i}>{s}</li>
@@ -772,8 +783,8 @@ function IdeasView({ data }) {
               <p className="pullquote tight-pull">{idea.one_liner}</p>
               <p className="idea-card-p">{idea.why_for_you}</p>
               <p className="idea-card-p">
-                <span className="muted-label">Vs competitors</span>{" "}
-                {idea.vs_competitors}
+                <span className="muted-label">Vs market alternatives</span>{" "}
+                {idea.vs_market_alternatives || idea.vs_competitors}
               </p>
               <p className="idea-card-p">
                 <span className="muted-label">Time to MVP</span> {idea.time_to_mvp}{" "}

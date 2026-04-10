@@ -297,13 +297,7 @@ export async function potentialVCsWithMatch({
   );
 }
 
-export async function simulateVcPitch({
-  combinedSummary,
-  competitorSummaries,
-  vcPersona,
-  pitchNotes,
-}) {
-  void competitorSummaries;
+export async function simulateVcPitch({ combinedSummary, vcPersona, pitchNotes }) {
   const persona =
     (vcPersona || "").trim() ||
     "Generic seed-stage US generalist partner (software + GTM focus)";

@@ -235,9 +235,10 @@ export default function App() {
         <p className="eyebrow">Local-first startup OS</p>
         <h1>VibeStart</h1>
         <p className="lede">
-          Describe your startup or paste your site URL (or both). Scrape
-          competitors, then run deep comparisons, VC match scores, hiring &
-          org gaps, tailored startup ideas, roasts, and more — powered by OpenAI.
+          Describe your startup or paste your site URL (or both). Add
+          competitor URLs only for <strong>Deep competitor comparison</strong>{" "}
+          — other intelligence runs focus on your product alone. VC match,
+          hiring, gaps, ideas, roasts, and more — powered by OpenAI.
         </p>
       </header>
 
@@ -314,9 +315,10 @@ export default function App() {
         </section>
 
         <section className="card">
-          <h2>2. Competitors</h2>
+          <h2>2. Competitors (for deep comparison only)</h2>
           <p className="hint">
-            One URL per line. Each page is fetched and saved under{" "}
+            Used exclusively by <strong>Deep competitor comparison</strong>. One
+            URL per line; each page is fetched and saved under{" "}
             <code className="mono">backend/data/raw_html/</code> with a row in
             SQLite.
           </p>
