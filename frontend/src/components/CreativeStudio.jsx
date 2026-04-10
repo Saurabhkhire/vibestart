@@ -4,7 +4,6 @@ import remarkGfm from "remark-gfm";
 import { creativeAd, creativeStory } from "../api.js";
 
 export function CreativeStudio({ profileId }) {
-  const [productUrl, setProductUrl] = useState("");
   const [adMode, setAdMode] = useState("text");
   const [storyMode, setStoryMode] = useState("text");
   const [adResult, setAdResult] = useState(null);
@@ -13,9 +12,8 @@ export function CreativeStudio({ profileId }) {
   const [busy, setBusy] = useState("");
 
   const runAd = async () => {
-    const u = productUrl.trim();
-    if (!u) {
-      setLocalErr("Enter a product or landing page URL.");
+    if (!profileId) {
+      setLocalErr("Save your startup profile in section 1 first.");
       return;
     }
     setLocalErr("");
@@ -23,8 +21,7 @@ export function CreativeStudio({ profileId }) {
     setAdResult(null);
     try {
       const data = await creativeAd({
-        productUrl: u,
-        profileId: profileId || undefined,
+        profileId,
         output: adMode === "image" ? "image" : "text",
       });
       setAdResult(data);
@@ -36,9 +33,8 @@ export function CreativeStudio({ profileId }) {
   };
 
   const runStory = async () => {
-    const u = productUrl.trim();
-    if (!u) {
-      setLocalErr("Enter a product or landing page URL.");
+    if (!profileId) {
+      setLocalErr("Save your startup profile in section 1 first.");
       return;
     }
     setLocalErr("");
@@ -46,8 +42,7 @@ export function CreativeStudio({ profileId }) {
     setStoryResult(null);
     try {
       const data = await creativeStory({
-        productUrl: u,
-        profileId: profileId || undefined,
+        profileId,
         output: storyMode === "images" ? "images" : "text",
       });
       setStoryResult(data);
@@ -60,20 +55,34 @@ export function CreativeStudio({ profileId }) {
 
   const ad = adResult?.result;
   const story = storyResult?.result;
+  const lastCtx = storyResult?.context || adResult?.context;
 
   return (
     <div className="creative-studio">
-      <label className="label">Product or startup page URL</label>
-      <input
-        className="input"
-        placeholder="https://yourproduct.com or landing page"
-        value={productUrl}
-        onChange={(e) => setProductUrl(e.target.value)}
-      />
       <p className="hint">
-        We scrape public HTML (same engine as competitors). If you saved a
-        profile above, we also blend your combined brief for richer copy.
+        Uses your <strong>saved profile</strong> only: the startup URL and/or
+        pitch from section 1, plus a fresh scrape of that URL when it&apos;s
+        available. You don&apos;t enter a separate link here.
       </p>
+      {lastCtx && (
+        <p className="hint tiny-disclaimer">
+          Last run context:{" "}
+          <strong>{lastCtx.pageTitle || "—"}</strong>
+          {lastCtx.source && (
+            <>
+              {" "}
+              <span className="mono">({lastCtx.source})</span>
+            </>
+          )}
+          {lastCtx.productUrl && (
+            <>
+              {" "}
+              · <span className="mono">{lastCtx.productUrl}</span>
+            </>
+          )}
+          {lastCtx.scrapeNote && <> · {lastCtx.scrapeNote}</>}
+        </p>
+      )}
 
       {localErr && <p className="err">{localErr}</p>}
 
@@ -103,7 +112,7 @@ export function CreativeStudio({ profileId }) {
           <button
             type="button"
             className="btn accent"
-            disabled={!!busy}
+            disabled={!!busy || !profileId}
             onClick={runAd}
           >
             {busy === "ad" ? "Generating…" : "Generate ad"}
@@ -183,7 +192,7 @@ export function CreativeStudio({ profileId }) {
           <button
             type="button"
             className="btn"
-            disabled={!!busy}
+            disabled={!!busy || !profileId}
             onClick={runStory}
           >
             {busy === "story" ? "Generating…" : "Generate story"}

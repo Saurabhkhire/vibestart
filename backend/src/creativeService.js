@@ -76,37 +76,73 @@ async function generateImagePng(prompt) {
 }
 
 /**
- * Scrape productUrl for context; optional profileId adds saved startup summary.
+ * Build creative context from a saved profile only (no ad-hoc URL from the client).
+ * Uses startup_url (re-scraped when present) plus combined_summary / startup_text.
  */
-export async function loadCreativeContext(productUrl, profileId, getProfileRow) {
-  const url = (productUrl || "").trim();
-  if (!url) throw new HttpError(400, "productUrl is required.");
+export async function loadCreativeContextForProfile(profileId, getProfileRow) {
+  const id = (profileId || "").trim();
+  if (!id) throw new HttpError(400, "profileId is required.");
 
-  let scrape;
-  try {
-    scrape = await scrapeUrl(url, {
-      profileId: profileId || null,
-      kind: "creative_product",
-    });
-  } catch (e) {
-    throw new HttpError(502, `Failed to scrape URL: ${e.message}`);
+  const row = getProfileRow(id);
+  if (!row) throw new HttpError(404, "Profile not found.");
+
+  const startupUrl = (row.startup_url || "").trim();
+  const founderText = (row.combined_summary || row.startup_text || "").trim();
+
+  if (!startupUrl && !founderText) {
+    throw new HttpError(
+      400,
+      "Save a startup URL and/or pitch text in your profile (section 1) first."
+    );
   }
 
-  let founderContext = "";
-  if (profileId && getProfileRow) {
-    const row = getProfileRow(profileId);
-    if (row) {
-      founderContext =
-        (row.combined_summary || row.startup_text || "").slice(0, 6000);
+  let scrape = null;
+  let scrapeError = null;
+  if (startupUrl) {
+    try {
+      scrape = await scrapeUrl(startupUrl, {
+        profileId: id,
+        kind: "creative_product",
+      });
+    } catch (e) {
+      scrapeError = e.message || String(e);
     }
   }
 
+  if (scrape) {
+    return {
+      source: "scraped_start_url",
+      productUrl: scrape.url,
+      pageTitle: scrape.title,
+      excerpt: scrape.excerpt,
+      bodySample: scrape.bodyPreview,
+      founderContext: founderText.slice(0, 6000),
+      scrapeNote: null,
+    };
+  }
+
+  if (!founderText) {
+    throw new HttpError(
+      502,
+      startupUrl
+        ? `Could not fetch startup URL (${scrapeError || "unknown error"}). Fix the URL or add pitch text in your profile.`
+        : "Add pitch text in your profile."
+    );
+  }
+
   return {
-    productUrl: scrape.url,
-    pageTitle: scrape.title,
-    excerpt: scrape.excerpt,
-    bodySample: scrape.bodyPreview,
-    founderContext,
+    source: startupUrl ? "profile_text_fallback" : "profile_text_only",
+    productUrl: startupUrl || null,
+    pageTitle: startupUrl
+      ? "Startup brief (site unavailable — using saved profile text)"
+      : "Startup brief (from your saved profile)",
+    excerpt: founderText.slice(0, 500),
+    bodySample: founderText.slice(0, 12_000),
+    founderContext: founderText.slice(0, 6000),
+    scrapeNote:
+      startupUrl && scrapeError
+        ? `Live site fetch failed (${scrapeError}). Copy uses your saved brief.`
+        : null,
   };
 }
 
@@ -117,6 +153,9 @@ export async function generateAdFromProduct(ctx, output) {
   const user = JSON.stringify({
     product_page: ctx,
     output_mode: output,
+    note:
+      ctx.scrapeNote ||
+      "Context is from the founder's saved profile (URL scrape and/or stored pitch).",
   });
   const parsed = await chatJson(
     system,
@@ -167,6 +206,9 @@ export async function generateStoryFromProduct(ctx, output) {
   const user = JSON.stringify({
     product_page: ctx,
     output_mode: output,
+    note:
+      ctx.scrapeNote ||
+      "Context is from the founder's saved profile (URL scrape and/or stored pitch).",
   });
   const parsed = await chatJson(
     system,

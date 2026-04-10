@@ -455,11 +455,12 @@ export default function App() {
         <section className="card span-2">
           <h2>5. Creative studio (ads &amp; stories)</h2>
           <p className="hint">
-            Paste a <strong>product or landing-page URL</strong>. We pull public
-            page text, optionally blend your saved startup profile, then generate
-            channel-ready ad copy — with an optional <strong>DALL·E</strong> image
-            — or a brand story as <strong>text</strong> or a <strong>visual
-            storyboard</strong> (several images).
+            Context comes from <strong>section 1</strong> (your saved URL and/or
+            pitch). We scrape that URL when possible and blend your combined
+            brief, then generate channel-ready ad copy — with an optional{" "}
+            <strong>DALL·E</strong> image — or a brand story as{" "}
+            <strong>text</strong> or a <strong>visual storyboard</strong>{" "}
+            (several images). No separate URL field here.
           </p>
           <CreativeStudio profileId={profileId} />
         </section>
